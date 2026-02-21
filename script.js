@@ -1,4 +1,4 @@
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+﻿document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         const href = this.getAttribute('href');
         if (!href || href === '#') return;
@@ -11,6 +11,104 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         }
     });
 });
+// THEME SWITCHER (system / light / dark)
+(function () {
+    const STORAGE_KEY = "theme-mode";
+    const VALID_MODES = new Set(["system", "light", "dark"]);
+    const switcher = document.getElementById("theme-switcher");
+    const mediaQuery = window.matchMedia
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : { matches: false };
+    const root = document.documentElement;
+    const buttons = switcher ? Array.from(switcher.querySelectorAll("[data-theme-mode]")) : [];
+
+    function readMode() {
+        let saved = null;
+        try {
+            saved = localStorage.getItem(STORAGE_KEY);
+        } catch (error) {
+            saved = null;
+        }
+        return VALID_MODES.has(saved) ? saved : "system";
+    }
+
+    function shouldUseDark(mode) {
+        if (mode === "dark") return true;
+        if (mode === "light") return false;
+        return mediaQuery.matches;
+    }
+
+    let currentMode = readMode();
+
+    function paint(mode, persist) {
+        currentMode = VALID_MODES.has(mode) ? mode : "system";
+        root.classList.toggle("dark", shouldUseDark(currentMode));
+
+        buttons.forEach((button) => {
+            const active = button.dataset.themeMode === currentMode;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+
+        if (persist) {
+            try {
+                localStorage.setItem(STORAGE_KEY, currentMode);
+            } catch (error) { }
+        }
+    }
+
+    paint(currentMode, false);
+
+    buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+            paint(button.dataset.themeMode || "system", true);
+        });
+    });
+
+    const onSystemChange = () => {
+        if (currentMode === "system") {
+            paint("system", false);
+        }
+    };
+
+    if (typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", onSystemChange);
+    } else if (typeof mediaQuery.addListener === "function") {
+        mediaQuery.addListener(onSystemChange);
+    }
+})();
+(function () {
+    const menuBtn = document.getElementById('mobile-menu-btn');
+    const mobileNav = document.getElementById('mobile-nav');
+    if (!menuBtn || !mobileNav) return;
+
+    function closeMenu() {
+        mobileNav.classList.add('hidden');
+        menuBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    menuBtn.addEventListener('click', () => {
+        const willOpen = mobileNav.classList.contains('hidden');
+        mobileNav.classList.toggle('hidden', !willOpen);
+        menuBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+
+    mobileNav.querySelectorAll('a[href^="#"]').forEach((link) => {
+        link.addEventListener('click', closeMenu);
+    });
+
+    document.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (mobileNav.classList.contains('hidden')) return;
+        if (mobileNav.contains(target) || menuBtn.contains(target)) return;
+        closeMenu();
+    });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 768) closeMenu();
+    });
+})();
 // NEWS SLIDER - vanilla JS (no jQuery / no Swiper)
 (function () {
     const root = document.getElementById('newsSliderRoot');
@@ -217,6 +315,45 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 
     track.addEventListener('pointerup', finishDrag);
     track.addEventListener('pointercancel', finishDrag);
+
+    // Touch fallback for browsers/devices without Pointer Events support.
+    if (!window.PointerEvent) {
+        let touchDragging = false;
+        let touchStartX = 0;
+        let touchDeltaX = 0;
+
+        track.addEventListener('touchstart', (event) => {
+            const touch = event.changedTouches[0];
+            if (!touch) return;
+            touchDragging = true;
+            dragMoved = false;
+            touchStartX = touch.clientX;
+            touchDeltaX = 0;
+            stopAutoplay();
+        }, { passive: true });
+
+        track.addEventListener('touchmove', (event) => {
+            if (!touchDragging) return;
+            const touch = event.changedTouches[0];
+            if (!touch) return;
+            touchDeltaX = touch.clientX - touchStartX;
+            if (Math.abs(touchDeltaX) > 6) dragMoved = true;
+            if (Math.abs(touchDeltaX) > 10) event.preventDefault();
+        }, { passive: false });
+
+        function finishTouchDrag() {
+            if (!touchDragging) return;
+            touchDragging = false;
+            if (Math.abs(touchDeltaX) > 45) {
+                if (touchDeltaX < 0) next();
+                if (touchDeltaX > 0) prev();
+            }
+            startAutoplay();
+        }
+
+        track.addEventListener('touchend', finishTouchDrag, { passive: true });
+        track.addEventListener('touchcancel', finishTouchDrag, { passive: true });
+    }
 
     track.addEventListener('click', (event) => {
         const card = event.target.closest('.news-slider__item');
@@ -623,12 +760,12 @@ const translations = {
         "nav-team": "Our Team",
         "nav-contact": "Contact",
         "btn-hero-contact": "Contact Us",
-        "home-pill": "Royal School Ã¢â‚¬Â¢ Since 1924",
+        "home-pill": "Royal School Since 2023",
         "home-title": "A Royal Journey of Learning and Character.",
         "home-text": "Welcome to Royal School, where we combine strong values, excellent teaching, and a caring community to shape confident and responsible learners.",
         "home-btn-primary": "Learn About Our School",
         "home-btn-secondary": "View Latest News <span class=\"material-icons-outlined text-sm\">arrow_forward</span>",
-        "home-highlight-1-number": "KGÃ¢â‚¬â€œGrade 12",
+        "home-highlight-1-number": "Royal School",
         "home-highlight-1-label": "Comprehensive Programs",
         "home-highlight-2-label": "Royal Community",
         "home-highlight-2-text": "Students, staff, and families working together for success.",
@@ -673,9 +810,9 @@ const translations = {
         "contact-tagline": "Contact Us",
         "contact-title": "We are happy to answer your questions.",
         "contact-text": "For inquiries about registration, fees, transportation, or any other details, please reach out to our school office.",
-        "contact-address": "123 Heritage Way, Windsor, UK",
-        "contact-phone": "+44 20 7946 0123",
-        "contact-email": "admissions@royalschool.edu",
+        "contact-address": "Palestine - Gaza - Al-Rasheed-Street",
+        "contact-phone": "+970 566 447 557",
+        "contact-email": "schoolroyal2023@gmail.com",
         "contact-form-title": "Send us a message",
         "contact-form-text": "Fill in your details and our team will contact you as soon as possible.",
         "contact-form-name-label": "Student / Parent Name",
@@ -692,12 +829,12 @@ const translations = {
         "nav-contact": "اتصل بنا",
         "btn-hero-contact": "تواصل معنا",
 
-        "home-pill": "المدرسة الملكية • منذ 1924",
+        "home-pill": "المدرسة الملكية • منذ 2023",
         "home-title": "رحلة ملكية في التعلم وبناء الشخصية.",
         "home-text": "مرحبًا بكم في المدرسة الملكية، حيث نجمع بين القيم الراسخة، والتعليم المتميز، والمجتمع الداعم لنصنع طلابًا واثقين ومسؤولين.",
         "home-btn-primary": "تعرّف على مدرستنا",
         "home-btn-secondary": "عرض آخر الأخبار <span class=\"material-icons-outlined text-sm\">arrow_forward</span>",
-        "home-highlight-1-number": "الروضة – الصف الثاني عشر",
+        // "home-highlight-1-number": "الروضة – الصف الثاني عشر",
         "home-highlight-1-label": "برامج تعليمية متكاملة",
         "home-highlight-2-label": "مجتمع ملكي",
         "home-highlight-2-text": "طلاب وهيئة تدريس وأولياء أمور يعملون معًا لتحقيق النجاح.",
@@ -746,9 +883,9 @@ const translations = {
         "contact-tagline": "اتصل بنا",
         "contact-title": "يسعدنا الإجابة على استفساراتكم.",
         "contact-text": "للاستفسار حول التسجيل، الرسوم، المواصلات، أو أي تفاصيل أخرى، يرجى التواصل مع إدارة المدرسة.",
-        "contact-address": "123 شارع التراث، وندسور، المملكة المتحدة",
-        "contact-phone": "+44 20 7946 0123",
-        "contact-email": "admissions@royalschool.edu",
+        "contact-address": "Palestine - Gaza - Al-Rasheed-Street",
+        "contact-phone": "+970 566 447 557",
+        "contact-email": "schoolroyal2023@gmail.com",
         "contact-form-title": "أرسل لنا رسالة",
         "contact-form-text": "املأ بياناتك وسيتواصل معك فريقنا في أقرب وقت ممكن.",
         "contact-form-name-label": "اسم الطالب / ولي الأمر",
